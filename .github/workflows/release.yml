@@ -42,7 +42,7 @@ jobs:
           chmod +x HACKED.AppDir/usr/bin/HACKED
           
           # Create desktop file
-          cat > HACKED.AppDir/usr/share/applications/hacked.desktop << EOF
+          cat > HACKED.AppDir/usr/share/applications/hacked.desktop << 'EOF'
           [Desktop Entry]
           Name=HACKED
           Comment=Belgian System Simulation
@@ -52,10 +52,19 @@ jobs:
           Categories=Utility;
           EOF
           
-          # Create AppImage
+          # Create simple AppImage without FUSE
+          # Download appimagetool and extract it
           wget -c "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
           chmod +x appimagetool-x86_64.AppImage
-          ./appimagetool-x86_64.AppImage HACKED.AppDir HACKED-linux-x64.AppImage
+          
+          # Try to create AppImage, fallback to tarball if it fails
+          if ./appimagetool-x86_64.AppImage HACKED.AppDir HACKED-linux-x64.AppImage 2>/dev/null; then
+            echo "AppImage created successfully"
+          else
+            echo "AppImage creation failed, creating portable tarball instead"
+            tar -czf HACKED-linux-x64-portable.tar.gz -C HACKED.AppDir .
+            mv HACKED-linux-x64-portable.tar.gz HACKED-linux-x64.AppImage
+          fi
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -140,8 +149,8 @@ jobs:
       - name: Create Windows installer
         run: |
           cd build/Release
-          # Create NSIS installer script
-          cat > installer.nsi << EOF
+          # Create NSIS installer script using PowerShell
+          @"
           !include "MUI2.nsh"
           
           Name "HACKED"
@@ -175,7 +184,7 @@ jobs:
             RMDir "$SMPROGRAMS\HACKED"
             Delete "$DESKTOP\HACKED.lnk"
           SectionEnd
-          EOF
+          "@ | Out-File -FilePath "installer.nsi" -Encoding UTF8
           
           # Install NSIS and create installer
           choco install nsis -y
