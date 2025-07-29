@@ -44,13 +44,18 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install qt cmake
+          brew install qt@5 cmake
+
+      - name: Set Qt environment
+        run: |
+          echo "QT_DIR=$(brew --prefix qt@5)" >> $GITHUB_ENV
+          echo "PATH=$(brew --prefix qt@5)/bin:$PATH" >> $GITHUB_ENV
 
       - name: Build application
         run: |
           mkdir -p build
           cd build
-          cmake ..
+          cmake .. -DCMAKE_PREFIX_PATH=$(brew --prefix qt@5)
           make -j$(sysctl -n hw.ncpu)
 
       - name: Test build output
@@ -77,11 +82,16 @@ jobs:
           arch: 'x64'
           modules: 'qtbase'
 
+      - name: Set Qt environment
+        run: |
+          echo "Qt_DIR=$env:Qt5_DIR" >> $env:GITHUB_ENV
+          echo "PATH=$env:Qt5_DIR\bin;$env:PATH" >> $env:GITHUB_ENV
+
       - name: Build application
         run: |
           mkdir build
           cd build
-          cmake .. -G "Visual Studio 16 2019" -A x64
+          cmake .. -G "Visual Studio 16 2019" -A x64 -DCMAKE_PREFIX_PATH="$env:Qt5_DIR"
           cmake --build . --config Release
 
       - name: Test build output
