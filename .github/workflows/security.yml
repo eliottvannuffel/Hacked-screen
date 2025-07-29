@@ -1,0 +1,105 @@
+name: Security Scan
+
+on:
+  schedule:
+    # Run weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  dependency-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for outdated dependencies
+        run: |
+          echo "🔍 Checking for outdated dependencies..."
+          
+          # Check CMake version requirement
+          cmake_version=$(grep "cmake_minimum_required" CMakeLists.txt | grep -o '[0-9]\+\.[0-9]\+')
+          echo "CMake minimum version: $cmake_version"
+          
+          # Check C++ standard
+          cpp_standard=$(grep "CMAKE_CXX_STANDARD" CMakeLists.txt | grep -o '[0-9]\+')
+          echo "C++ standard: $cpp_standard"
+          
+          # Check Qt version compatibility
+          if grep -q "Qt6" CMakeLists.txt; then
+            echo "✅ Qt6 support detected"
+          fi
+          if grep -q "Qt5" CMakeLists.txt; then
+            echo "✅ Qt5 support detected"
+          fi
+
+  license-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check license file
+        run: |
+          if [ -f "LICENSE" ]; then
+            echo "✅ LICENSE file exists"
+            head -5 LICENSE
+          else
+            echo "❌ LICENSE file missing"
+            exit 1
+          fi
+
+      - name: Check for license headers
+        run: |
+          echo "🔍 Checking source files for license headers..."
+          
+          # Check C++ source files
+          for file in *.cpp *.h; do
+            if [ -f "$file" ]; then
+              if grep -q "MIT License\|Copyright" "$file"; then
+                echo "✅ $file has license reference"
+              else
+                echo "⚠️  $file has no license header (optional)"
+              fi
+            fi
+          done
+
+  code-scanning:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: cpp
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3 

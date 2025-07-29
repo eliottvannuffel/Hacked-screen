@@ -1,0 +1,94 @@
+name: Version Bump and Tag
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - 'LICENSE'
+      - 'SECURITY.md'
+      - 'CONTRIBUTING.md'
+
+jobs:
+  version-bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Get current version
+        id: current_version
+        run: |
+          # Extract version from CMakeLists.txt
+          VERSION=$(grep "project(HACKED VERSION" CMakeLists.txt | sed 's/.*VERSION \([0-9]*\.[0-9]*\.[0-9]*\).*/\1/')
+          echo "CURRENT_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Current version: $VERSION"
+
+      - name: Bump version
+        id: bump_version
+        run: |
+          # Parse current version
+          IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+          
+          # Bump patch version
+          new_patch=$((patch + 1))
+          NEW_VERSION="$major.$minor.$new_patch"
+          
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+          echo "New version: $NEW_VERSION"
+          
+          # Update CMakeLists.txt
+          sed -i "s/project(HACKED VERSION $CURRENT_VERSION)/project(HACKED VERSION $NEW_VERSION)/" CMakeLists.txt
+          
+          # Update Info.plist for macOS
+          sed -i "s/<string>$CURRENT_VERSION<\/string>/<string>$NEW_VERSION<\/string>/g" Info.plist
+
+      - name: Create and push tag
+        run: |
+          git add CMakeLists.txt Info.plist
+          git commit -m "Bump version to $NEW_VERSION [skip ci]"
+          git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
+          git push origin main
+          git push origin "v$NEW_VERSION"
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ env.NEW_VERSION }}
+          release_name: Release v${{ env.NEW_VERSION }}
+          body: |
+            ## 🎉 HACKED - Belgian System Simulation v${{ env.NEW_VERSION }}
+            
+            ### 📦 Downloads
+            - **Linux (x64)**: HACKED-linux-x64.tar.gz
+            - **macOS (x64)**: HACKED-macos-x64.tar.gz  
+            - **Windows (x64)**: HACKED-windows-x64.tar.gz
+            
+            ### 🚀 Installation
+            1. Download the appropriate tarball for your platform
+            2. Extract: `tar -xzf HACKED-[platform]-x64.tar.gz`
+            3. Run: `./HACKED` (Linux/macOS) or `HACKED.exe` (Windows)
+            
+            ### 🔧 Features
+            - Fullscreen Belgian system simulation
+            - Automatic screenshots after 30 seconds
+            - Exit with password: "chicon"
+            
+            ### ⚠️ Safety Notice
+            This is a harmless simulation application for educational purposes only.
+            No actual system hacking occurs.
+          draft: true
+          prerelease: false 

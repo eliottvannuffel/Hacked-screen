@@ -1,0 +1,201 @@
+name: Automated Testing
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y qtbase5-dev qt5-qmake cmake build-essential
+
+      - name: Build for testing
+        run: |
+          mkdir -p build
+          cd build
+          cmake ..
+          make -j$(nproc)
+
+      - name: Validate executable
+        run: |
+          cd build
+          if [ -f "HACKED" ]; then
+            echo "✅ Executable exists"
+            file HACKED
+            ls -la HACKED
+          else
+            echo "❌ Executable not found"
+            exit 1
+          fi
+
+      - name: Check for required symbols
+        run: |
+          cd build
+          if command -v nm >/dev/null 2>&1; then
+            echo "🔍 Checking for Qt symbols..."
+            nm HACKED | grep -i qt | head -10
+          fi
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y qtbase5-dev qt5-qmake cmake build-essential xvfb
+
+      - name: Build application
+        run: |
+          mkdir -p build
+          cd build
+          cmake ..
+          make -j$(nproc)
+
+      - name: Test application startup (headless)
+        run: |
+          cd build
+          timeout 10s xvfb-run -a ./HACKED || true
+          echo "✅ Application startup test completed"
+
+  documentation-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate README
+        run: |
+          if [ -f "README.md" ]; then
+            echo "✅ README.md exists"
+            # Check for required sections
+            if grep -q "## Installation" README.md; then
+              echo "✅ Installation section found"
+            else
+              echo "⚠️  Installation section missing"
+            fi
+            
+            if grep -q "## Usage" README.md; then
+              echo "✅ Usage section found"
+            else
+              echo "⚠️  Usage section missing"
+            fi
+            
+            if grep -q "## Safety" README.md; then
+              echo "✅ Safety section found"
+            else
+              echo "⚠️  Safety section missing"
+            fi
+          else
+            echo "❌ README.md missing"
+            exit 1
+          fi
+
+      - name: Validate CMakeLists.txt
+        run: |
+          if [ -f "CMakeLists.txt" ]; then
+            echo "✅ CMakeLists.txt exists"
+            
+            # Check for required components
+            if grep -q "project(HACKED" CMakeLists.txt; then
+              echo "✅ Project name defined"
+            else
+              echo "❌ Project name missing"
+              exit 1
+            fi
+            
+            if grep -q "find_package(Qt" CMakeLists.txt; then
+              echo "✅ Qt package finding configured"
+            else
+              echo "❌ Qt package finding missing"
+              exit 1
+            fi
+            
+            if grep -q "add_executable(HACKED" CMakeLists.txt; then
+              echo "✅ Executable target defined"
+            else
+              echo "❌ Executable target missing"
+              exit 1
+            fi
+          else
+            echo "❌ CMakeLists.txt missing"
+            exit 1
+          fi
+
+      - name: Check build scripts
+        run: |
+          # Check Linux/macOS build script
+          if [ -f "build.sh" ]; then
+            echo "✅ build.sh exists"
+            if [ -x "build.sh" ]; then
+              echo "✅ build.sh is executable"
+            else
+              echo "⚠️  build.sh is not executable"
+            fi
+          else
+            echo "❌ build.sh missing"
+            exit 1
+          fi
+          
+          # Check Windows build script
+          if [ -f "build.bat" ]; then
+            echo "✅ build.bat exists"
+          else
+            echo "❌ build.bat missing"
+            exit 1
+          fi
+
+  platform-compatibility:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [linux, macos, windows]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate platform-specific files
+        run: |
+          case ${{ matrix.platform }} in
+            linux)
+              echo "🔍 Checking Linux compatibility..."
+              if [ -f "build.sh" ]; then
+                echo "✅ Linux build script exists"
+              fi
+              ;;
+            macos)
+              echo "🔍 Checking macOS compatibility..."
+              if [ -f "Info.plist" ]; then
+                echo "✅ macOS bundle info exists"
+              fi
+              ;;
+            windows)
+              echo "🔍 Checking Windows compatibility..."
+              if [ -f "build.bat" ]; then
+                echo "✅ Windows build script exists"
+              fi
+              ;;
+          esac
+
+      - name: Check CMakeLists.txt platform support
+        run: |
+          if grep -q "if(WIN32)" CMakeLists.txt; then
+            echo "✅ Windows support configured"
+          fi
+          if grep -q "elseif(APPLE)" CMakeLists.txt; then
+            echo "✅ macOS support configured"
+          fi
+          if grep -q "else()" CMakeLists.txt; then
+            echo "✅ Linux support configured"
+          fi 

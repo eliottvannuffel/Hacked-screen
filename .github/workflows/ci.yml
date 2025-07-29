@@ -1,0 +1,151 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y qtbase5-dev qt5-qmake cmake build-essential
+
+      - name: Build application
+        run: |
+          mkdir -p build
+          cd build
+          cmake ..
+          make -j$(nproc)
+
+      - name: Test build output
+        run: |
+          cd build
+          if [ -f "HACKED" ]; then
+            echo "✅ Linux build successful - executable found"
+            file HACKED
+          else
+            echo "❌ Linux build failed - executable not found"
+            exit 1
+          fi
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install qt cmake
+
+      - name: Build application
+        run: |
+          mkdir -p build
+          cd build
+          cmake ..
+          make -j$(sysctl -n hw.ncpu)
+
+      - name: Test build output
+        run: |
+          cd build
+          if [ -d "HACKED.app" ]; then
+            echo "✅ macOS build successful - app bundle found"
+            ls -la HACKED.app/Contents/MacOS/
+          else
+            echo "❌ macOS build failed - app bundle not found"
+            exit 1
+          fi
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '5.15.2'
+          arch: 'x64'
+          modules: 'qtbase'
+
+      - name: Build application
+        run: |
+          mkdir build
+          cd build
+          cmake .. -G "Visual Studio 16 2019" -A x64
+          cmake --build . --config Release
+
+      - name: Test build output
+        run: |
+          cd build/Release
+          if (Test-Path "HACKED.exe") {
+            Write-Host "✅ Windows build successful - executable found"
+            Get-Item HACKED.exe | Select-Object Name, Length, LastWriteTime
+          } else {
+            Write-Host "❌ Windows build failed - executable not found"
+            exit 1
+          }
+
+  code-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check CMakeLists.txt syntax
+        run: |
+          if [ -f "CMakeLists.txt" ]; then
+            echo "✅ CMakeLists.txt exists"
+            head -5 CMakeLists.txt
+          else
+            echo "❌ CMakeLists.txt missing"
+            exit 1
+          fi
+
+      - name: Check source files
+        run: |
+          if [ -f "HACKED.cpp" ]; then
+            echo "✅ HACKED.cpp exists"
+            wc -l HACKED.cpp
+          else
+            echo "❌ HACKED.cpp missing"
+            exit 1
+          fi
+
+      - name: Check build scripts
+        run: |
+          if [ -f "build.sh" ]; then
+            echo "✅ build.sh exists"
+            chmod +x build.sh
+          else
+            echo "❌ build.sh missing"
+            exit 1
+          fi
+          
+          if [ -f "build.bat" ]; then
+            echo "✅ build.bat exists"
+          else
+            echo "❌ build.bat missing"
+            exit 1
+          fi
+
+      - name: Check documentation
+        run: |
+          required_files=("README.md" "LICENSE" "SECURITY.md" "CONTRIBUTING.md" "WINDOWS_INSTALL.md")
+          for file in "${required_files[@]}"; do
+            if [ -f "$file" ]; then
+              echo "✅ $file exists"
+            else
+              echo "❌ $file missing"
+              exit 1
+            fi
+          done 

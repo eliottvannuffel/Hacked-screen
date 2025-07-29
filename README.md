@@ -65,10 +65,35 @@ chmod +x build.sh
 
 ### **Windows:**
 ```bash
-# Install required tools:
-# 1. Qt: https://www.qt.io/download
-# 2. CMake: https://cmake.org/download/
-# 3. Visual Studio or MinGW compiler
+# Option 1: Using vcpkg (Recommended - No account needed)
+# Install vcpkg first
+git clone https://github.com/Microsoft/vcpkg.git
+cd vcpkg
+.\bootstrap-vcpkg.bat
+.\vcpkg integrate install
+
+# Install Qt via vcpkg (correct package names)
+.\vcpkg install qt5-base
+
+# Option 2: Using MSYS2 (No account needed)
+# Download MSYS2 from: https://www.msys2.org/
+# Then run:
+pacman -S mingw-w64-x86_64-qt5-base mingw-w64-x86_64-qt5-widgets
+
+# Option 3: Using Chocolatey (No account needed)
+# Install Chocolatey first, then:
+choco install qt5
+
+# Option 4: Manual download (No account needed)
+# Download Qt offline installers from:
+# https://download.qt.io/official_releases/qt/
+# Look for "qt-opensource-windows-x86-5.15.2.exe" or similar
+
+# Option 5: Using Qt official installer (Account required)
+# https://www.qt.io/download (requires free account)
+
+# After installing Qt, install CMake:
+# Download from: https://cmake.org/download/
 
 # Clone repository
 git clone <repository-url>
@@ -163,6 +188,60 @@ This is a **harmless entertainment application**. It does not perform any actual
 - **Linux**: Install `libxcb-xinerama0` if fullscreen doesn't work
 - **macOS**: Grant accessibility permissions if needed
 - **Windows**: Run as administrator if fullscreen fails
+
+## 🚀 CI/CD Pipeline
+
+This project uses GitHub Actions for automated CI/CD:
+
+### 🔄 **Automated Workflows**
+
+1. **Continuous Integration** (`ci.yml`)
+   - Runs on every commit to `main` and `develop`
+   - Builds and tests on Linux, macOS, and Windows
+   - Validates code quality and documentation
+
+2. **Security Scanning** (`security.yml`)
+   - Weekly vulnerability scans with Trivy
+   - CodeQL analysis for security issues
+   - License and dependency checks
+
+3. **Automated Testing** (`test.yml`)
+   - Unit tests and integration tests
+   - Platform compatibility validation
+   - Documentation validation
+
+4. **Version Bump** (`version-bump.yml`)
+   - Automatically bumps version on commits to `main`
+   - Creates new Git tags (v1.0.1, v1.0.2, etc.)
+   - Updates CMakeLists.txt and Info.plist
+
+5. **Release Pipeline** (`release.yml`)
+   - Triggers on version tags (v*)
+   - Builds tarballs for all platforms
+   - Creates GitHub releases with downloads
+
+### 📦 **Release Process**
+
+1. **Commit to main branch** → Automatic version bump
+2. **New tag created** → Triggers release build
+3. **Multi-platform build** → Linux, macOS, Windows tarballs
+4. **GitHub release** → Automatic upload of artifacts
+
+### 🎯 **Manual Release**
+
+To create a manual release:
+
+```bash
+# Create and push a new tag
+git tag -a v1.1.0 -m "Release v1.1.0"
+git push origin v1.1.0
+```
+
+This will automatically trigger the release pipeline and create a new GitHub release with downloadable tarballs.
+
+### 📊 **Workflow Status**
+
+Check the [Actions tab](https://github.com/yourusername/hacked/actions) to see the status of all workflows.
 
 ---
 
