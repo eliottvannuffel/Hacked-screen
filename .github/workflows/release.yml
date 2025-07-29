@@ -74,23 +74,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install Python dependencies
+        run: |
+          python -m pip install aqtinstall
+
       - name: Install Qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          version: '5.15.2'
-          arch: 'x64'
-          modules: 'qtbase'
+        run: |
+          python -m aqt install-qt windows desktop 5.15.2 win64_msvc2019_64 --outputdir Qt --modules qtbase
 
       - name: Set Qt environment
         run: |
-          echo "Qt_DIR=$env:Qt5_DIR" >> $env:GITHUB_ENV
-          echo "PATH=$env:Qt5_DIR\bin;$env:PATH" >> $env:GITHUB_ENV
+          echo "Qt_DIR=$env:GITHUB_WORKSPACE\Qt\5.15.2\msvc2019_64" >> $env:GITHUB_ENV
+          echo "PATH=$env:GITHUB_WORKSPACE\Qt\5.15.2\msvc2019_64\bin;$env:PATH" >> $env:GITHUB_ENV
 
       - name: Build application
         run: |
           mkdir build
           cd build
-          cmake .. -G "Visual Studio 16 2019" -A x64 -DCMAKE_PREFIX_PATH="$env:Qt5_DIR"
+          cmake .. -G "Visual Studio 16 2019" -A x64 -DCMAKE_PREFIX_PATH="$env:GITHUB_WORKSPACE\Qt\5.15.2\msvc2019_64"
           cmake --build . --config Release
 
       - name: Create Windows tarball
