@@ -29,11 +29,41 @@ jobs:
           cd build
           tar -czf HACKED-linux-x64.tar.gz HACKED
 
-      - name: Upload Linux artifact
+      - name: Create Linux AppImage
+        run: |
+          cd build
+          # Create AppImage structure
+          mkdir -p HACKED.AppDir/usr/bin
+          mkdir -p HACKED.AppDir/usr/share/applications
+          mkdir -p HACKED.AppDir/usr/share/icons/hicolor/256x256/apps
+          
+          # Copy executable
+          cp HACKED HACKED.AppDir/usr/bin/
+          chmod +x HACKED.AppDir/usr/bin/HACKED
+          
+          # Create desktop file
+          cat > HACKED.AppDir/usr/share/applications/hacked.desktop << EOF
+          [Desktop Entry]
+          Name=HACKED
+          Comment=Belgian System Simulation
+          Exec=HACKED
+          Icon=hacked
+          Type=Application
+          Categories=Utility;
+          EOF
+          
+          # Create AppImage
+          wget -c "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
+          chmod +x appimagetool-x86_64.AppImage
+          ./appimagetool-x86_64.AppImage HACKED.AppDir HACKED-linux-x64.AppImage
+
+      - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
           name: HACKED-linux-x64
-          path: build/HACKED-linux-x64.tar.gz
+          path: |
+            build/HACKED-linux-x64.tar.gz
+            build/HACKED-linux-x64.AppImage
 
   build-macos:
     runs-on: macos-latest
@@ -62,11 +92,19 @@ jobs:
           cd build
           tar -czf HACKED-macos-x64.tar.gz HACKED.app
 
-      - name: Upload macOS artifact
+      - name: Create macOS DMG
+        run: |
+          cd build
+          # Create DMG
+          hdiutil create -volname "HACKED" -srcfolder HACKED.app -ov -format UDZO HACKED-macos-x64.dmg
+
+      - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
           name: HACKED-macos-x64
-          path: build/HACKED-macos-x64.tar.gz
+          path: |
+            build/HACKED-macos-x64.tar.gz
+            build/HACKED-macos-x64.dmg
 
   build-windows:
     runs-on: windows-latest
@@ -99,11 +137,57 @@ jobs:
           cd build/Release
           tar -czf HACKED-windows-x64.tar.gz HACKED.exe
 
-      - name: Upload Windows artifact
+      - name: Create Windows installer
+        run: |
+          cd build/Release
+          # Create NSIS installer script
+          cat > installer.nsi << EOF
+          !include "MUI2.nsh"
+          
+          Name "HACKED"
+          OutFile "HACKED-windows-x64-setup.exe"
+          InstallDir "$PROGRAMFILES\HACKED"
+          
+          !insertmacro MUI_PAGE_WELCOME
+          !insertmacro MUI_PAGE_DIRECTORY
+          !insertmacro MUI_PAGE_INSTFILES
+          !insertmacro MUI_PAGE_FINISH
+          
+          !insertmacro MUI_LANGUAGE "English"
+          
+          Section "Install"
+            SetOutPath "$INSTDIR"
+            File "HACKED.exe"
+            
+            CreateDirectory "$SMPROGRAMS\HACKED"
+            CreateShortCut "$SMPROGRAMS\HACKED\HACKED.lnk" "$INSTDIR\HACKED.exe"
+            CreateShortCut "$DESKTOP\HACKED.lnk" "$INSTDIR\HACKED.exe"
+            
+            WriteUninstaller "$INSTDIR\Uninstall.exe"
+          SectionEnd
+          
+          Section "Uninstall"
+            Delete "$INSTDIR\HACKED.exe"
+            Delete "$INSTDIR\Uninstall.exe"
+            RMDir "$INSTDIR"
+            
+            Delete "$SMPROGRAMS\HACKED\HACKED.lnk"
+            RMDir "$SMPROGRAMS\HACKED"
+            Delete "$DESKTOP\HACKED.lnk"
+          SectionEnd
+          EOF
+          
+          # Install NSIS and create installer
+          choco install nsis -y
+          makensis installer.nsi
+
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: HACKED-windows-x64
-          path: build/Release/HACKED-windows-x64.tar.gz
+          path: |
+            build/Release/HACKED-windows-x64.tar.gz
+            build/Release/HACKED-windows-x64-setup.exe
 
   create-release:
     needs: [build-linux, build-macos, build-windows]
@@ -127,14 +211,32 @@ jobs:
             ## 🎉 HACKED - Belgian System Simulation
             
             ### 📦 Downloads
-            - **Linux (x64)**: HACKED-linux-x64.tar.gz
-            - **macOS (x64)**: HACKED-macos-x64.tar.gz  
-            - **Windows (x64)**: HACKED-windows-x64.tar.gz
+            
+            #### **Linux (x64)**
+            - **AppImage**: HACKED-linux-x64.AppImage (Recommended)
+            - **Tarball**: HACKED-linux-x64.tar.gz
+            
+            #### **macOS (x64)**
+            - **DMG**: HACKED-macos-x64.dmg (Recommended)
+            - **Tarball**: HACKED-macos-x64.tar.gz
+            
+            #### **Windows (x64)**
+            - **Installer**: HACKED-windows-x64-setup.exe (Recommended)
+            - **Tarball**: HACKED-windows-x64.tar.gz
             
             ### 🚀 Installation
-            1. Download the appropriate tarball for your platform
-            2. Extract: `tar -xzf HACKED-[platform]-x64.tar.gz`
-            3. Run: `./HACKED` (Linux/macOS) or `HACKED.exe` (Windows)
+            
+            #### **Linux:**
+            - **AppImage**: `chmod +x HACKED-linux-x64.AppImage && ./HACKED-linux-x64.AppImage`
+            - **Tarball**: `tar -xzf HACKED-linux-x64.tar.gz && ./HACKED`
+            
+            #### **macOS:**
+            - **DMG**: Double-click to mount, drag to Applications
+            - **Tarball**: `tar -xzf HACKED-macos-x64.tar.gz && ./HACKED.app/Contents/MacOS/HACKED`
+            
+            #### **Windows:**
+            - **Installer**: Double-click HACKED-windows-x64-setup.exe
+            - **Tarball**: Extract and run HACKED.exe
             
             ### 🔧 Features
             - Fullscreen Belgian system simulation
@@ -147,7 +249,17 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Linux Release Asset
+      - name: Upload Linux Release Assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./HACKED-linux-x64/HACKED-linux-x64.AppImage
+          asset_name: HACKED-linux-x64.AppImage
+          asset_content_type: application/octet-stream
+
+      - name: Upload Linux Tarball
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -157,7 +269,17 @@ jobs:
           asset_name: HACKED-linux-x64.tar.gz
           asset_content_type: application/gzip
 
-      - name: Upload macOS Release Asset
+      - name: Upload macOS Release Assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./HACKED-macos-x64/HACKED-macos-x64.dmg
+          asset_name: HACKED-macos-x64.dmg
+          asset_content_type: application/octet-stream
+
+      - name: Upload macOS Tarball
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -167,7 +289,17 @@ jobs:
           asset_name: HACKED-macos-x64.tar.gz
           asset_content_type: application/gzip
 
-      - name: Upload Windows Release Asset
+      - name: Upload Windows Release Assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./HACKED-windows-x64/HACKED-windows-x64-setup.exe
+          asset_name: HACKED-windows-x64-setup.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload Windows Tarball
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

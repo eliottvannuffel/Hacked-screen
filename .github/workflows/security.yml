@@ -107,8 +107,17 @@ jobs:
         with:
           languages: cpp
 
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y qtbase5-dev qt5-qmake cmake build-essential
+
+      - name: Build for CodeQL analysis
+        run: |
+          mkdir -p build
+          cd build
+          cmake ..
+          make -j$(nproc)
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3 
