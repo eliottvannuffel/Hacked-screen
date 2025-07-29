@@ -35,7 +35,7 @@ A humorous, fullscreen desktop application that simulates a "hacked system" with
 
 ## 🔧 **Installation**
 
-### **Ubuntu/Debian:**
+### **Linux (Ubuntu/Debian):**
 ```bash
 # Install dependencies
 sudo apt update
@@ -48,20 +48,68 @@ chmod +x build.sh
 ./build.sh
 ```
 
-### **Build from source:**
+### **macOS:**
+```bash
+# Install Homebrew (if not installed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install dependencies
+brew install qt cmake
+
+# Clone and build
+git clone <repository-url>
+cd <repository-name>
+chmod +x build.sh
+./build.sh
+```
+
+### **Windows:**
+```bash
+# Install required tools:
+# 1. Qt: https://www.qt.io/download
+# 2. CMake: https://cmake.org/download/
+# 3. Visual Studio or MinGW compiler
+
+# Clone repository
+git clone <repository-url>
+cd <repository-name>
+
+# Build using batch file
+build.bat
+
+# Or manually:
+mkdir build
+cd build
+cmake .. -G "Visual Studio 16 2019" -A x64
+cmake --build . --config Release
+```
+
+### **Build from source (all platforms):**
 ```bash
 mkdir build
 cd build
 cmake ..
-make -j$(nproc)
+cmake --build .
 ```
 
 ## 🎮 **Usage**
 
+### **Linux:**
 ```bash
-# Run the application
 cd build
 ./HACKED
+```
+
+### **macOS:**
+```bash
+cd build
+./HACKED.app/Contents/MacOS/HACKED
+```
+
+### **Windows:**
+```bash
+cd build\Release
+HACKED.exe
 ```
 
 ### **Controls:**
@@ -72,9 +120,8 @@ cd build
 ## 📸 **Screenshots**
 
 The application automatically takes a screenshot after 30 seconds and saves it to:
-```
-~/Pictures/hacked_screenshot_YYYYMMDD_HHMMSS.png
-```
+- **Linux/macOS**: `~/Pictures/hacked_screenshot_YYYYMMDD_HHMMSS.png`
+- **Windows**: `%USERPROFILE%\Pictures\hacked_screenshot_YYYYMMDD_HHMMSS.png`
 
 ## 🎨 **Customization**
 
@@ -104,6 +151,18 @@ Feel free to submit issues, feature requests, or pull requests!
 ## ⚠️ **Disclaimer**
 
 This is a **harmless entertainment application**. It does not perform any actual hacking or system modifications. Use responsibly and only on systems you own or have permission to use.
+
+## 🐛 **Troubleshooting**
+
+### **Build Issues:**
+- Ensure Qt5 or Qt6 is properly installed
+- Check that CMake version is 3.16 or higher
+- Verify C++17 compiler support
+
+### **Runtime Issues:**
+- **Linux**: Install `libxcb-xinerama0` if fullscreen doesn't work
+- **macOS**: Grant accessibility permissions if needed
+- **Windows**: Run as administrator if fullscreen fails
 
 ---
 
