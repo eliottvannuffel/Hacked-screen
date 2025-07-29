@@ -11,6 +11,11 @@ on:
       - 'SECURITY.md'
       - 'CONTRIBUTING.md'
 
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
 jobs:
   version-bump:
     runs-on: ubuntu-latest
@@ -23,8 +28,8 @@ jobs:
 
       - name: Configure Git
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
 
       - name: Get current version
         id: current_version
@@ -53,12 +58,15 @@ jobs:
           # Update Info.plist for macOS
           sed -i "s/<string>$CURRENT_VERSION<\/string>/<string>$NEW_VERSION<\/string>/g" Info.plist
 
-      - name: Create and push tag
+      - name: Create and push changes
         run: |
           git add CMakeLists.txt Info.plist
           git commit -m "Bump version to $NEW_VERSION [skip ci]"
-          git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
           git push origin main
+
+      - name: Create and push tag
+        run: |
+          git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
           git push origin "v$NEW_VERSION"
 
       - name: Create Release

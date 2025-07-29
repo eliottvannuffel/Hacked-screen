@@ -1,0 +1,176 @@
+name: Manual Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.1)'
+        required: true
+        default: '1.0.1'
+      release_notes:
+        description: 'Release notes'
+        required: false
+        default: 'Bug fixes and improvements'
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y qtbase5-dev qt5-qmake cmake build-essential
+
+      - name: Build application
+        run: |
+          mkdir -p build
+          cd build
+          cmake ..
+          make -j$(nproc)
+
+      - name: Create Linux tarball
+        run: |
+          cd build
+          tar -czf HACKED-linux-x64.tar.gz HACKED
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HACKED-linux-x64
+          path: build/HACKED-linux-x64.tar.gz
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install qt cmake
+
+      - name: Build application
+        run: |
+          mkdir -p build
+          cd build
+          cmake ..
+          make -j$(sysctl -n hw.ncpu)
+
+      - name: Create macOS tarball
+        run: |
+          cd build
+          tar -czf HACKED-macos-x64.tar.gz HACKED.app
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HACKED-macos-x64
+          path: build/HACKED-macos-x64.tar.gz
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '5.15.2'
+          arch: 'x64'
+          modules: 'qtbase'
+
+      - name: Build application
+        run: |
+          mkdir build
+          cd build
+          cmake .. -G "Visual Studio 16 2019" -A x64
+          cmake --build . --config Release
+
+      - name: Create Windows tarball
+        run: |
+          cd build/Release
+          tar -czf HACKED-windows-x64.tar.gz HACKED.exe
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HACKED-windows-x64
+          path: build/Release/HACKED-windows-x64.tar.gz
+
+  create-release:
+    needs: [build-linux, build-macos, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          release_name: Release v${{ github.event.inputs.version }}
+          body: |
+            ## 🎉 HACKED - Belgian System Simulation v${{ github.event.inputs.version }}
+            
+            ${{ github.event.inputs.release_notes }}
+            
+            ### 📦 Downloads
+            - **Linux (x64)**: HACKED-linux-x64.tar.gz
+            - **macOS (x64)**: HACKED-macos-x64.tar.gz  
+            - **Windows (x64)**: HACKED-windows-x64.tar.gz
+            
+            ### 🚀 Installation
+            1. Download the appropriate tarball for your platform
+            2. Extract: `tar -xzf HACKED-[platform]-x64.tar.gz`
+            3. Run: `./HACKED` (Linux/macOS) or `HACKED.exe` (Windows)
+            
+            ### 🔧 Features
+            - Fullscreen Belgian system simulation
+            - Automatic screenshots after 30 seconds
+            - Exit with password: "chicon"
+            
+            ### ⚠️ Safety Notice
+            This is a harmless simulation application for educational purposes only.
+            No actual system hacking occurs.
+          draft: false
+          prerelease: false
+
+      - name: Upload Linux Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./HACKED-linux-x64/HACKED-linux-x64.tar.gz
+          asset_name: HACKED-linux-x64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload macOS Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./HACKED-macos-x64/HACKED-macos-x64.tar.gz
+          asset_name: HACKED-macos-x64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload Windows Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./HACKED-windows-x64/HACKED-windows-x64.tar.gz
+          asset_name: HACKED-windows-x64.tar.gz
+          asset_content_type: application/gzip 
