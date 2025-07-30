@@ -163,10 +163,9 @@ jobs:
             exit 1
           }
           
-          # Create NSIS installer script with better error handling
+          # Create simple NSIS installer script
           @"
           !include "MUI2.nsh"
-          !include "LogicLib.nsh"
           
           Name "HACKED"
           OutFile "HACKED-windows-x64-setup.exe"
@@ -181,50 +180,24 @@ jobs:
           
           Section "Install"
             SetOutPath "$INSTDIR"
-            
-            # Copy the executable with error checking
             File "HACKED.exe"
-            
-            # Verify the file was copied
-            IfFileExists "$INSTDIR\HACKED.exe" 0 +3
-              DetailPrint "✅ HACKED.exe installed successfully"
-              Goto +2
-              DetailPrint "❌ Failed to install HACKED.exe"
             
             # Create desktop shortcut
             CreateShortCut "$DESKTOP\HACKED.lnk" "$INSTDIR\HACKED.exe"
             
-            # Create start menu shortcut
-            CreateDirectory "$SMPROGRAMS\HACKED"
-            CreateShortCut "$SMPROGRAMS\HACKED\HACKED.lnk" "$INSTDIR\HACKED.exe"
-            
             # Write uninstaller
             WriteUninstaller "$INSTDIR\Uninstall.exe"
             
-            # Write registry information for add/remove programs
-            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\HACKED" "DisplayName" "HACKED - Belgian System Simulation"
+            # Write registry information
+            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\HACKED" "DisplayName" "HACKED"
             WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\HACKED" "UninstallString" "$INSTDIR\Uninstall.exe"
-            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\HACKED" "DisplayIcon" "$INSTDIR\HACKED.exe"
-            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\HACKED" "Publisher" "HACKED Team"
-            WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\HACKED" "DisplayVersion" "1.0.8"
-            WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\HACKED" "NoModify" 1
-            WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\HACKED" "NoRepair" 1
           SectionEnd
           
           Section "Uninstall"
-            # Remove shortcuts
             Delete "$DESKTOP\HACKED.lnk"
-            Delete "$SMPROGRAMS\HACKED\HACKED.lnk"
-            RMDir "$SMPROGRAMS\HACKED"
-            
-            # Remove files
             Delete "$INSTDIR\HACKED.exe"
             Delete "$INSTDIR\Uninstall.exe"
-            
-            # Remove directory
             RMDir "$INSTDIR"
-            
-            # Remove registry keys
             DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\HACKED"
           SectionEnd
           "@ | Out-File -FilePath "installer.nsi" -Encoding UTF8
