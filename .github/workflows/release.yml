@@ -125,25 +125,46 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Python dependencies
+      - name: Build Windows
+        id: build-windows
         run: |
-          python -m pip install aqtinstall
-
-      - name: Install Qt
-        run: |
-          python -m aqt install-qt windows desktop 5.15.2 win64_msvc2019_64 --outputdir Qt
-
-      - name: Set Qt environment
-        run: |
-          echo "Qt_DIR=$env:GITHUB_WORKSPACE\Qt\5.15.2\msvc2019_64" >> $env:GITHUB_ENV
-          echo "PATH=$env:GITHUB_WORKSPACE\Qt\5.15.2\msvc2019_64\bin;$env:PATH" >> $env:GITHUB_ENV
-
-      - name: Build application
-        run: |
+          # Install Qt using aqtinstall
+          python -m pip install setuptools>=70.1.0 py7zr==1.0.*
+          python -m pip install aqtinstall==3.3.*
+          
+          # Install Qt 5.15.2 with all necessary modules
+          python -m aqt install-qt windows desktop 5.15.2 win64_msvc2019_64 --outputdir Qt --modules qtbase qtdeclarative qtquickcontrols2 qtgraphicaleffects
+          
+          # Set Qt environment
+          $env:CMAKE_PREFIX_PATH = "Qt/5.15.2/msvc2019_64"
+          $env:PATH = "Qt/5.15.2/msvc2019_64/bin;$env:PATH"
+          
+          # Create build directory
           mkdir build
           cd build
-          cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="$env:GITHUB_WORKSPACE\Qt\5.15.2\msvc2019_64"
+          
+          # Configure with CMake
+          cmake .. -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="$env:CMAKE_PREFIX_PATH"
+          
+          # Build
           cmake --build . --config Release
+          
+          # Verify executable exists
+          if (Test-Path "Release/HACKED.exe") {
+            Write-Host "✅ HACKED.exe found"
+            Get-ChildItem "Release/HACKED.exe" | Format-Table Name, Length, LastWriteTime
+          } else {
+            Write-Host "❌ HACKED.exe not found!"
+            exit 1
+          }
+          
+          # Verify Qt DLLs are deployed
+          if (Test-Path "Release/Qt5Core.dll") {
+            Write-Host "✅ Qt DLLs deployed successfully"
+            Get-ChildItem "Release/*.dll" | Format-Table Name, Length
+          } else {
+            Write-Host "❌ Qt DLLs not found - deployment may have failed"
+          }
 
       - name: Create Windows tarball
         run: |
@@ -163,7 +184,7 @@ jobs:
             exit 1
           }
           
-          # Create simple NSIS installer script
+          # Create NSIS installer script with Qt DLLs
           @"
           !include "MUI2.nsh"
           
@@ -180,7 +201,10 @@ jobs:
           
           Section "Install"
             SetOutPath "$INSTDIR"
+            
+            # Copy executable and all DLLs
             File "HACKED.exe"
+            File "*.dll"
             
             # Create desktop shortcut
             CreateShortCut "$DESKTOP\HACKED.lnk" "$INSTDIR\HACKED.exe"
@@ -196,6 +220,7 @@ jobs:
           Section "Uninstall"
             Delete "$DESKTOP\HACKED.lnk"
             Delete "$INSTDIR\HACKED.exe"
+            Delete "$INSTDIR\*.dll"
             Delete "$INSTDIR\Uninstall.exe"
             RMDir "$INSTDIR"
             DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\HACKED"

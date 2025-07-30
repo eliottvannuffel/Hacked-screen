@@ -1,72 +1,63 @@
 cmake_minimum_required(VERSION 3.16)
-project(HACKED VERSION 1.0.10)
+project(HACKED VERSION 1.0.11)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Enable automoc for Qt
-set(CMAKE_AUTOMOC ON)
-
-# Find Qt6 first, fallback to Qt5
-find_package(Qt6 COMPONENTS Core Widgets QUIET)
-if (Qt6_FOUND)
-    message(STATUS "Using Qt6")
-    set(QT_VERSION "Qt6")
-else()
-    find_package(Qt5 COMPONENTS Core Widgets REQUIRED)
-    message(STATUS "Using Qt5")
-    set(QT_VERSION "Qt5")
+# Find Qt packages
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
+if(NOT Qt6_FOUND)
+    find_package(Qt5 REQUIRED COMPONENTS Core Widgets)
 endif()
 
 # Create executable
 add_executable(HACKED HACKED.cpp)
 
 # Link Qt libraries
-if (Qt6_FOUND)
-    target_link_libraries(HACKED Qt6::Core Qt6::Widgets)
-else()
-    target_link_libraries(HACKED Qt5::Core Qt5::Widgets)
-endif()
+target_link_libraries(HACKED Qt::Core Qt::Widgets)
 
 # Platform-specific settings
 if(WIN32)
-    # Windows-specific settings
     set_target_properties(HACKED PROPERTIES
         WIN32_EXECUTABLE TRUE
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
     )
-    # Copy Qt DLLs to output directory (for Windows deployment)
-    if (Qt6_FOUND)
+    
+    # Deploy Qt DLLs on Windows
+    if(Qt6_FOUND)
+        find_program(WINDEPLOYQT_EXECUTABLE NAMES windeployqt HINTS "${Qt6_DIR}/../../../bin" "${Qt6_DIR}/../../bin")
+    else()
+        find_program(WINDEPLOYQT_EXECUTABLE NAMES windeployqt HINTS "${Qt5_DIR}/../../../bin" "${Qt5_DIR}/../../bin")
+    endif()
+    
+    if(WINDEPLOYQT_EXECUTABLE)
         add_custom_command(TARGET HACKED POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:Qt6::Core>
-            $<TARGET_FILE:Qt6::Widgets>
-            $<TARGET_FILE_DIR:HACKED>
+            COMMAND ${WINDEPLOYQT_EXECUTABLE} --no-compiler-runtime --no-translations --no-system-d3d-compiler --no-opengl-sw --dir $<TARGET_FILE_DIR:HACKED> $<TARGET_FILE:HACKED>
+            COMMENT "Deploying Qt libraries for Windows"
         )
     endif()
-elseif(APPLE)
-    # macOS-specific settings
-    set_target_properties(HACKED PROPERTIES
-        MACOSX_BUNDLE TRUE
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-    )
-    # Set macOS bundle properties
-    set_target_properties(HACKED PROPERTIES
-        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
-    )
-else()
-    # Linux-specific settings
-    set_target_properties(HACKED PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
-    )
 endif()
 
-# Set application properties
-set_target_properties(HACKED PROPERTIES
-    OUTPUT_NAME "HACKED"
-)
+if(APPLE)
+    set_target_properties(HACKED PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
+    )
+    
+    # Deploy Qt frameworks on macOS
+    if(Qt6_FOUND)
+        find_program(MACDEPLOYQT_EXECUTABLE NAMES macdeployqt HINTS "${Qt6_DIR}/../../../bin" "${Qt6_DIR}/../../bin")
+    else()
+        find_program(MACDEPLOYQT_EXECUTABLE NAMES macdeployqt HINTS "${Qt5_DIR}/../../../bin" "${Qt5_DIR}/../../bin")
+    endif()
+    
+    if(MACDEPLOYQT_EXECUTABLE)
+        add_custom_command(TARGET HACKED POST_BUILD
+            COMMAND ${MACDEPLOYQT_EXECUTABLE} $<TARGET_BUNDLE_DIR:HACKED> -dmg
+            COMMENT "Deploying Qt frameworks for macOS"
+        )
+    endif()
+endif()
 
-# Installation
+# Install targets
 install(TARGETS HACKED
     RUNTIME DESTINATION bin
     BUNDLE DESTINATION .
