@@ -149,7 +149,7 @@ jobs:
       - name: Create Windows installer
         run: |
           cd build/Release
-          # Create NSIS installer script using PowerShell
+          # Create simple NSIS installer script
           @"
           !include "MUI2.nsh"
           
@@ -168,10 +168,6 @@ jobs:
             SetOutPath "$INSTDIR"
             File "HACKED.exe"
             
-            CreateDirectory "$SMPROGRAMS\HACKED"
-            CreateShortCut "$SMPROGRAMS\HACKED\HACKED.lnk" "$INSTDIR\HACKED.exe"
-            CreateShortCut "$DESKTOP\HACKED.lnk" "$INSTDIR\HACKED.exe"
-            
             WriteUninstaller "$INSTDIR\Uninstall.exe"
           SectionEnd
           
@@ -179,15 +175,10 @@ jobs:
             Delete "$INSTDIR\HACKED.exe"
             Delete "$INSTDIR\Uninstall.exe"
             RMDir "$INSTDIR"
-            
-            Delete "$SMPROGRAMS\HACKED\HACKED.lnk"
-            RMDir "$SMPROGRAMS\HACKED"
-            Delete "$DESKTOP\HACKED.lnk"
           SectionEnd
           "@ | Out-File -FilePath "installer.nsi" -Encoding UTF8
           
-          # Install NSIS and create installer
-          choco install nsis -y
+          # Create installer
           makensis installer.nsi
 
       - name: Upload Windows artifacts
